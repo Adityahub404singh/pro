@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ai-guru-website
+    env: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python website_ai.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+
+  - type: web  
+    name: ai-guru-mobile
+    env: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python mobile_ai.py
+    envVars:
+      - key: PORT
+        value: 10000
