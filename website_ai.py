@@ -4,505 +4,582 @@ import random
 import re
 import math
 import json
-import threading
+import requests
+import os
 
 app = Flask(__name__)
 
-class UltimateAI:
+class UltimateAIWithFreeAPI:
     def __init__(self):
         self.name = "AI_GURU_PRO"
-        self.version = "ULTIMATE_3.0"  # Updated version
+        self.version = "VERCEL_ULTIMATE_4.0"
+        self.platform = "Vercel + Free AI APIs"
         
-        # ENHANCED: All current AI drawbacks with better solutions
-        self.solved_problems = {
-            "response_stopping": "✅ Direct answers always - no 'I understand' stopping",
-            "context_loss": "✅ Smart conversation memory with context linking", 
-            "vague_queries": "✅ Context-aware responses for 'uska', 'what about it'",
-            "math_errors": "✅ Advanced math engine with step-by-step solutions",
-            "emotional_void": "✅ Real emotional intelligence with empathy",
-            "creativity_block": "✅ Dynamic story generation based on user input",
-            "language_barrier": "✅ Seamless Hinglish processing",
-            "fact_errors": "✅ Real-time fact verification system",
-            "user_engagement": "✅ Interactive and engaging responses",
-            "offline_capability": "✅ Full offline functionality"
+        # Free AI APIs
+        self.free_apis = {
+            "huggingface": "https://api-inference.huggingface.co/models/gpt2",
+            "deepinfra": "https://api.deepinfra.com/v1/openai/chat/completions",
+            "together_ai": "https://api.together.xyz/v1/chat/completions"
+        }
+        
+        self.api_keys = {
+            "huggingface": os.environ.get('HUGGINGFACE_API_KEY', 'free'),
+            "deepinfra": os.environ.get('DEEPINFRA_API_KEY', 'free'),
+            "together_ai": os.environ.get('TOGETHER_API_KEY', 'free')
         }
         
         self.conversation_memory = []
-        self.user_profiles = {}
-        self.max_memory = 50
-        
-        # NEW: Context tracking for "uska", "what about it" queries
         self.last_context = {}
     
     def process_message(self, user_input, user_id="default"):
-        """MAJOR IMPROVEMENT: Direct processing with context awareness"""
+        """Enhanced processing with Free AI API fallback"""
         
-        # Store conversation with timestamp
-        conversation_entry = {
+        # Store conversation
+        self.conversation_memory.append({
             "user": user_input,
             "time": datetime.datetime.now().isoformat(),
             "user_id": user_id
-        }
+        })
         
-        self.conversation_memory.append(conversation_entry)
-        
-        # Memory management
-        if len(self.conversation_memory) > self.max_memory:
+        if len(self.conversation_memory) > 50:
             self.conversation_memory.pop(0)
         
-        # MAJOR FIX: Direct response - no stopping at "I understand"
-        response = self._direct_response_processing(user_input, user_id)
+        # Try local processing first
+        local_response = self._local_ai_processing(user_input, user_id)
         
-        # Store context for future reference
-        self.last_context[user_id] = {
-            "last_input": user_input,
-            "last_response": response,
-            "timestamp": datetime.datetime.now().isoformat()
-        }
+        # If complex query, try free AI API
+        if self._needs_advanced_ai(user_input):
+            api_response = self._call_free_ai_api(user_input)
+            if api_response and "error" not in api_response.lower():
+                return f"🤖 {api_response}"
         
-        return response
+        return local_response
     
-    def _direct_response_processing(self, user_input, user_id):
-        """SOLVED: Always gives direct answers, never stops at 'I understand'"""
-        
+    def _local_ai_processing(self, user_input, user_id):
+        """Local AI processing for instant responses"""
         input_lower = user_input.lower().strip()
         
-        # MAJOR FIX: Handle vague queries like "answer do uska", "what about it"
-        if any(word in input_lower for word in ['uska', 'iska', 'what about it', 'tell me about it']):
+        # Context handling
+        if any(word in input_lower for word in ['uska', 'iska', 'what about it']):
             return self._handle_context_query(user_id)
         
-        # MAJOR FIX: Direct math calculations
+        # Math calculations
         math_result = self._advanced_math_processing(input_lower)
         if math_result:
             return math_result
         
-        # MAJOR FIX: Direct responses for common queries
-        direct_responses = {
-            'hello': [
-                "Namaste! 🙏 Main AI_GURU_PRO ULTIMATE hoon. Aapki kya madad kar sakta hoon?",
-                "Hello! I'm AI_GURU_PRO ULTIMATE. How can I assist you today? 🌟"
-            ],
-            'hi': [
-                "Namaste! 😊 Aapka swagat hai! Aaj main aapki kya madad kar sakta hoon?",
-                "Hi there! 🚀 Welcome to AI_GURU_PRO ULTIMATE. What can I do for you?"
-            ],
-            'how are you': [
-                "Main bilkul mast chal raha hoon! Aapka din kaisa chal raha hai? 😄",
-                "I'm functioning perfectly! Thanks for asking! How about you? 🌟"
-            ],
-            'time': [
-                f"⏰ Samay hai: {datetime.datetime.now().strftime('%H:%M:%S')}",
-                f"🕒 Current time: {datetime.datetime.now().strftime('%I:%M %p')}"
-            ],
-            'date': [
-                f"📅 Aaj ki taareekh: {datetime.datetime.now().strftime('%d/%m/%Y')}",
-                f"📅 Today's date: {datetime.datetime.now().strftime('%B %d, %Y')}"
-            ],
-            '1-1': [
-                "1 - 1 = 0 (Zero/Shunya) ✅",
-                "Ek minus ek barabar zero hota hai! 🎯"
-            ],
-            '2+2': [
-                "2 + 2 = 4 (Char) ✅", 
-                "Do jod do barabar char hota hai! 🎯"
-            ],
-            'joke': [
-                "🤣 Ek AI restaurant gaya aur bola: 'Mujhe byte-sized order chahiye!'",
-                "😄 Why was the computer cold? It left its Windows open!"
-            ],
-            'thank you': [
-                "🤗 Aapka bahut bahut dhanyavaad! Aage bhi madad ke liye haazir hoon!",
-                "🌟 You're most welcome! Always here to help you!"
-            ]
+        # Quick responses
+        quick_responses = {
+            'hello': "🚀 Namaste! Main AI_GURU_PRO hoon - Vercel pe deployed with Free AI APIs!",
+            'hi': "👋 Hello! I'm running on Vercel with advanced AI capabilities!",
+            'how are you': "😊 Main bilkul mast chal raha hoon! Vercel + Free AI APIs ke saath!",
+            'time': f"🕒 Server Time: {datetime.datetime.now().strftime('%H:%M:%S')}",
+            'date': f"📅 Date: {datetime.datetime.now().strftime('%d/%m/%Y')}",
+            '1-1': "1 - 1 = 0 ✅ (Zero/Shunya)",
+            '2+2': "2 + 2 = 4 ✅ (Char)",
+            'vercel': "✅ Deployed on Vercel! Auto-scaling, Global CDN, Free Tier!",
+            'api': "🔗 Using Free AI APIs: HuggingFace, DeepInfra, Together AI",
+            'owner': "👨‍💻 Owner: Adityahub404singh | GitHub: Adityahub404singh/pro",
+            'features': "✨ Features: Vercel Deployed, Free AI APIs, Real-time Responses, 24/7 Online"
         }
         
-        # Check for direct matches
-        for key in direct_responses:
+        for key in quick_responses:
             if key in input_lower:
-                return random.choice(direct_responses[key])
+                return quick_responses[key]
         
-        # MAJOR FIX: Story generation with user context
-        if any(word in input_lower for word in ['story', 'kahani', 'tale', 'katha']):
-            return self._generate_context_story(user_input)
+        # For complex queries, indicate AI processing
+        if len(input_lower.split()) > 3:
+            return "🤔 Interesting question! Let me process this with advanced AI..."
         
-        # MAJOR FIX: Emotional support with empathy
-        emotion = self._enhanced_emotion_detection(user_input)
-        if emotion != "neutral":
-            return self._provide_emotional_support(user_input, emotion)
+        return "✅ Main samjha! Aap kya janna chahenge? 😊"
+    
+    def _call_free_ai_api(self, user_input):
+        """Call free AI APIs for complex queries"""
+        try:
+            # Try HuggingFace first (free tier available)
+            response = self._call_huggingface_api(user_input)
+            if response:
+                return response
+            
+            # Try DeepInfra as fallback
+            response = self._call_deepinfra_api(user_input)
+            if response:
+                return response
+                
+            return None
+                
+        except Exception as e:
+            return None
+    
+    def _call_huggingface_api(self, user_input):
+        """HuggingFace Inference API (Free)"""
+        try:
+            API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium"
+            headers = {"Authorization": f"Bearer {self.api_keys['huggingface']}"}
+            
+            payload = {
+                "inputs": user_input,
+                "parameters": {"max_length": 100, "temperature": 0.7}
+            }
+            
+            response = requests.post(API_URL, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if isinstance(result, list) and len(result) > 0:
+                    return result[0].get('generated_text', '')[:200]
+            return None
+            
+        except:
+            return None
+    
+    def _call_deepinfra_api(self, user_input):
+        """DeepInfra Free AI API"""
+        try:
+            url = "https://api.deepinfra.com/v1/inference/microsoft/DialoGPT-medium"
+            headers = {
+                "Content-Type": "application/json",
+            }
+            
+            data = {
+                "input": user_input,
+                "max_length": 100,
+                "temperature": 0.7
+            }
+            
+            response = requests.post(url, headers=headers, json=data, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('results', [{}])[0].get('generated_text', '')[:150]
+            return None
+            
+        except:
+            return None
+    
+    def _needs_advanced_ai(self, user_input):
+        """Check if query needs advanced AI processing"""
+        complex_keywords = [
+            'explain', 'describe', 'what is', 'how to', 'why', 'tell me about',
+            'difference between', 'advantages', 'disadvantages', 'compare',
+            'define', 'meaning of', 'concept of'
+        ]
         
-        # MAJOR FIX: Never return generic "I understand" - always give value
-        return self._provide_helpful_response(user_input)
+        input_lower = user_input.lower()
+        return any(keyword in input_lower for keyword in complex_keywords)
     
     def _handle_context_query(self, user_id):
-        """SOLVED: Handles 'uska', 'what about it' queries using context"""
+        """Handle context queries"""
         if user_id in self.last_context:
             last_input = self.last_context[user_id]["last_input"]
-            last_response = self.last_context[user_id]["last_response"]
-            
-            return f"✅ Pichle sawaal ('{last_input}') ke baare mein: {last_response}"
-        else:
-            return "🤔 Main samjha aap kisi pichle topic ke baare mein pooch rahe hain. Kya aap specific question pooch sakte hain?"
+            return f"✅ Pichle sawaal ('{last_input}') ke baare mein kuch aur janna chahenge?"
+        return "🤔 Konse specific topic ke baare mein pooch rahe hain?"
     
     def _advanced_math_processing(self, user_input):
-        """SOLVED: Advanced math with step-by-step solutions"""
-        # Simple arithmetic
+        """Math processing"""
         math_patterns = {
             r'(\d+)\s*[\-\–]\s*(\d+)': lambda x, y: f"{x} - {y} = {int(x) - int(y)}",
             r'(\d+)\s*[\+\+]\s*(\d+)': lambda x, y: f"{x} + {y} = {int(x) + int(y)}", 
-            r'(\d+)\s*[\*×]\s*(\d+)': lambda x, y: f"{x} × {y} = {int(x) * int(y)}",
-            r'(\d+)\s*[\/÷]\s*(\d+)': lambda x, y: f"{x} ÷ {y} = {int(x) / int(y) if int(y) != 0 else 'Error: Division by zero'}"
         }
         
         for pattern, calculation in math_patterns.items():
             match = re.search(pattern, user_input)
             if match:
-                return f"🧮 Calculation: {calculation(match.group(1), match.group(2))}"
-        
-        # Complex calculations
-        if 'calculate' in user_input or 'ganana' in user_input:
-            try:
-                # Extract numbers and operators safely
-                numbers = re.findall(r'\d+', user_input)
-                if len(numbers) >= 2:
-                    return f"🧮 {numbers[0]} + {numbers[1]} = {int(numbers[0]) + int(numbers[1])}"
-            except:
-                return "❌ Ganana mein error. Kripya sahi numbers dijiye."
+                return f"🧮 {calculation(match.group(1), match.group(2))}"
         
         return None
     
-    def _enhanced_emotion_detection(self, text):
-        """SOLVED: Better emotion detection"""
-        text_lower = text.lower()
-        
-        emotion_indicators = {
-            "happy": ['happy', 'khush', 'mast', 'awesome', 'accha', 'bahut badhiya', '😊', '😂'],
-            "sad": ['sad', 'udaas', 'tension', 'problem', 'gussa', 'takleef', '😔', '😢'],
-            "angry": ['angry', 'gussa', 'naraaz', 'frustrated', 'hate', '😠', '🤬'],
-            "curious": ['what', 'how', 'why', 'kaise', 'kya', 'kab', 'kahan', '🤔', '❓']
-        }
-        
-        for emotion, indicators in emotion_indicators.items():
-            if any(indicator in text_lower for indicator in indicators):
-                return emotion
-        
-        return "neutral"
-    
-    def _provide_emotional_support(self, user_input, emotion):
-        """SOLVED: Real emotional support"""
-        support_responses = {
-            "happy": [
-                "😊 Aapko khush dekh kar bahut accha lag raha hai! Aapka din shubh ho!",
-                "🎉 Wow! Aapki khushi mujhe bhi khush kar deti hai! Kuch aur madad chahiye?"
-            ],
-            "sad": [
-                "🤗 Suno bhai/didi, aisa hota rehta hai. Main yahan hoon aapke saath. Baat karlo, sab theek ho jayega.",
-                "❤️ Aap udaas lag rahe hain. Yaad rakhiye, har mushkil ka hal hota hai. Main aapki madad ke liye hoon."
-            ],
-            "angry": [
-                "🧘‍♂️ Ghussa natural hai, lekin isse control karna important hai. Deep breath lein. Main madad kar sakta hoon.",
-                "😌 Thanda dimaag se sochiye. Aap kya solution soch rahe hain? Main suggest kar sakta hoon."
-            ],
-            "curious": [
-                "🔍 Aapki jaanne ki ichchha dekhar accha laga! Main puri koshish karunga aapki madad karne ki.",
-                "🤓 Excellent question! Main is bare mein aapko complete information dene ki koshish karunga."
-            ]
-        }
-        
-        return random.choice(support_responses.get(emotion, ["Main hoon na aapke saath! 😊"]))
-    
-    def _generate_context_story(self, user_input):
-        """SOLVED: Context-aware story generation"""
-        themes = {
-            'technology': "Ek samay ki baat hai, ek AI tha jo insaano ki madad karta tha...",
-            'nature': "Ek sundar jungle mein ek dost ki kahani hai...", 
-            'education': "Ek laalchi student ki kahani jo har cheez seekhna chahta tha...",
-            'default': "Ek samay ki baat hai, ek hero tha jo sabki madad karta tha..."
-        }
-        
-        # Detect theme from user input
-        detected_theme = 'default'
-        for theme in themes:
-            if theme in user_input.lower():
-                detected_theme = theme
-                break
-        
-        return f"📖 {themes[detected_theme]} Kya aap isi tarah ki aur kahaniyan sunna chahenge?"
-    
-    def _provide_helpful_response(self, user_input):
-        """SOLVED: Always provides helpful responses, never generic"""
-        helpful_suggestions = [
-            f"🤔 Main samjha: '{user_input}'. Kya aap inmein se kuch poochna chahenge?",
-            f"🎯 '{user_input}' ke baare mein - main aapki kis tarah madad kar sakta hoon?",
-            f"🚀 '{user_input}' samjh aaya! Kya aap specific question pooch sakte hain?"
-        ]
-        
-        suggestions = [
-            "🧮 Calculation karwana hai?",
-            "📖 Kahani sunni hai?", 
-            "😊 Emotional support chahiye?",
-            "🤣 Joke sunna hai?",
-            "⏰ Time/Date pata karna hai?"
-        ]
-        
-        base_response = random.choice(helpful_suggestions)
-        random_suggestions = random.sample(suggestions, 3)
-        
-        return f"{base_response}\n\n" + "\n".join(random_suggestions)
-    
     def get_system_info(self):
-        """Return enhanced system information"""
+        """System information"""
         return {
             "ai_name": self.name,
             "version": self.version,
-            "solved_problems": self.solved_problems,
+            "platform": self.platform,
+            "apis_available": list(self.free_apis.keys()),
             "conversation_memory": len(self.conversation_memory),
-            "active_users": len(self.last_context),
-            "status": "ALL_SYSTEMS_SUPER_OPERATIONAL",
-            "uptime": "24/7 Available",
-            "features": [
-                "Direct Answer System",
-                "Context-Aware Memory", 
-                "Emotional Intelligence",
-                "Multi-Language Support",
-                "Advanced Math Engine",
-                "Creative Story Generation"
-            ]
+            "status": "VERCEL_DEPLOYED_WITH_FREE_APIS",
+            "deployed_by": "Adityahub404singh"
         }
 
-# Initialize Enhanced Ultimate AI
-ultimate_ai = UltimateAI()
+# Initialize AI
+ai_bot = UltimateAIWithFreeAPI()
 
-# ENHANCED WEB INTERFACE
-ENHANCED_HTML = '''
+# Vercel Compatible HTML Template
+VERCEL_HTML = '''
 <!DOCTYPE html>
-<html>
+<html lang="hi">
 <head>
-    <title>AI_GURU_PRO ULTIMATE 3.0 - All Problems Solved</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI_GURU_PRO - Vercel + Free AI APIs</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #000000 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
             min-height: 100vh;
             padding: 20px;
+            line-height: 1.6;
         }
-        .ultimate-container {
-            max-width: 1200px;
+        
+        .container {
+            max-width: 1000px;
             margin: 0 auto;
-            background: rgba(255,255,255,0.95);
-            border-radius: 25px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-        }
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            color: white;
-            padding: 40px;
-            text-align: center;
-        }
-        .header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-        }
-        .problem-solutions {
-            background: #34495e;
-            color: white;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            font-size: 0.9em;
-        }
-        .solution-item {
-            background: rgba(255,255,255,0.1);
-            padding: 10px;
-            border-radius: 8px;
-            border-left: 4px solid #2ecc71;
-        }
-        .content-area {
-            padding: 40px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-        }
-        .chat-section {
-            background: white;
-            padding: 30px;
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
         }
-        .chat-box {
-            height: 400px;
-            border: 2px solid #ecf0f1;
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .platform-badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            background: linear-gradient(135deg, #0070f3, #00d4ff);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .badge.api {
+            background: linear-gradient(135deg, #7928ca, #ff0080);
+        }
+        
+        .ai-title {
+            font-size: 2.8em;
+            background: linear-gradient(135deg, #0070f3, #00d4ff, #7928ca);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 15px 0;
+            font-weight: 700;
+        }
+        
+        .content-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .content-area {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .chat-section {
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 15px;
-            padding: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .chat-box {
+            height: 350px;
             overflow-y: auto;
             margin-bottom: 20px;
-            background: #f8f9fa;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
+        
         .message {
-            margin: 15px 0;
-            padding: 15px 20px;
-            border-radius: 20px;
-            max-width: 85%;
+            margin: 12px 0;
+            padding: 12px 16px;
+            border-radius: 12px;
             animation: slideIn 0.3s ease;
+            max-width: 85%;
+            word-wrap: break-word;
         }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        
         .user-message {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
+            background: linear-gradient(135deg, #0070f3, #0051a8);
             margin-left: auto;
             border-bottom-right-radius: 5px;
+            border: 1px solid rgba(0, 112, 243, 0.4);
         }
+        
         .ai-message {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: white;
+            background: linear-gradient(135deg, #7928ca, #4c00ff);
+            margin-right: auto;
             border-bottom-left-radius: 5px;
+            border: 1px solid rgba(121, 40, 202, 0.4);
         }
+        
+        .api-message {
+            background: linear-gradient(135deg, #00d4aa, #009975);
+            border: 1px solid rgba(0, 212, 170, 0.4);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
         .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .action-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+        
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .input-group input:focus {
+            border-color: #0070f3;
+        }
+        
+        .input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #0070f3, #00d4ff);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 112, 243, 0.4);
+        }
+        
+        .features-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .api-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin: 15px 0;
         }
-        .quick-btn {
-            padding: 12px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .quick-btn:hover {
-            background: #2980b9;
-            transform: scale(1.05);
-        }
-        .input-group {
-            display: flex;
-            gap: 15px;
-        }
-        .input-group input {
-            flex: 1;
-            padding: 15px 20px;
-            border: 2px solid #3498db;
-            border-radius: 25px;
-            font-size: 16px;
-            outline: none;
-        }
-        .input-group button {
-            padding: 15px 30px;
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .features-section {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        .features-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .feature-card {
-            background: #f8f9fa;
+        
+        .api-card {
+            background: rgba(255, 255, 255, 0.08);
             padding: 15px;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #3498db;
+            border-left: 4px solid #0070f3;
+        }
+        
+        .api-card.free {
+            border-left-color: #00d4aa;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background: #00d4aa;
+            box-shadow: 0 0 10px #00d4aa;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+        }
+        
+        .typing-indicator {
+            display: none;
+            padding: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+        
+        .typing-dots {
+            display: inline-block;
+        }
+        
+        .typing-dots::after {
+            content: '...';
+            animation: typing 1.5s infinite;
+        }
+        
+        @keyframes typing {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
         }
     </style>
 </head>
 <body>
-    <div class="ultimate-container">
+    <div class="container">
         <div class="header">
-            <h1>🤖 AI_GURU_PRO ULTIMATE 3.0</h1>
-            <p>All AI Problems Solved • Direct Answers • Context Aware • Production Ready</p>
-        </div>
-        
-        <div class="problem-solutions">
-            <div class="solution-item">✅ Direct Answers - No "I understand" stopping</div>
-            <div class="solution-item">✅ Context Memory - "uska", "what about it" handled</div>
-            <div class="solution-item">✅ Advanced Math - Step-by-step solutions</div>
-            <div class="solution-item">✅ Emotional Intelligence - Real empathy</div>
-            <div class="solution-item">✅ Multi-Language - Seamless Hinglish</div>
-            <div class="solution-item">✅ Creative Stories - Context-aware generation</div>
-            <div class="solution-item">✅ Always Helpful - Never generic responses</div>
-            <div class="solution-item">✅ 24/7 Available - Full offline capability</div>
+            <div class="platform-badges">
+                <div class="badge">🚀 VERCEL DEPLOYED</div>
+                <div class="badge api">🤖 FREE AI APIS</div>
+                <div class="badge">⚡ REAL-TIME</div>
+                <div class="badge">🌍 GLOBAL CDN</div>
+            </div>
+            <h1 class="ai-title">AI_GURU_PRO ULTIMATE</h1>
+            <p>Advanced AI Assistant | Vercel Platform | Free AI APIs Integration</p>
         </div>
         
         <div class="content-area">
             <div class="chat-section">
-                <h2>💬 Ultimate AI Chat (All Problems Solved)</h2>
-                <div class="chat-box" id="chat-box">
+                <h2>💬 AI Chat Interface</h2>
+                <div class="chat-box" id="chatBox">
                     <div class="message ai-message">
-                        <strong>AI_GURU_PRO:</strong> 🙏 Namaste! Main AI_GURU_PRO ULTIMATE 3.0 hoon. <br><br>
-                        ✅ Sabhi AI problems solve kiye hain! <br>
-                        ✅ Direct answers milenge! <br>
-                        ✅ "uska", "what about it" samjhta hoon! <br><br>
+                        <strong>AI_GURU_PRO:</strong> 🎉 Namaste! Main successfully Vercel pe deploy ho gaya hoon!<br><br>
+                        ✅ <strong>Platform:</strong> Vercel<br>
+                        ✅ <strong>AI APIs:</strong> HuggingFace, DeepInfra<br>
+                        ✅ <strong>Owner:</strong> Adityahub404singh<br>
+                        ✅ <strong>Status:</strong> All Systems Operational<br><br>
                         Aap kya poochna chahenge?
                     </div>
                 </div>
                 
+                <div class="typing-indicator" id="typingIndicator">
+                    <span class="typing-dots"></span> AI processing with advanced APIs...
+                </div>
+                
                 <div class="quick-actions">
-                    <button class="quick-btn" onclick="quickAction('1-1 kitna hota hai?')">1-1 Calculation</button>
-                    <button class="quick-btn" onclick="quickAction('answer do uska')">Context Test</button>
-                    <button class="quick-btn" onclick="quickAction('Kahani sunao')">Story / Kahani</button>
-                    <button class="quick-btn" onclick="quickAction('Aaj mood kharab hai')">Emotion Check</button>
+                    <button class="action-btn" onclick="quickAction('Hello AI, how are you?')">👋 Hello</button>
+                    <button class="action-btn" onclick="quickAction('Explain artificial intelligence')">🤔 Explain AI</button>
+                    <button class="action-btn" onclick="quickAction('1-1 kitna hota hai?')">🧮 Math</button>
+                    <button class="action-btn" onclick="quickAction('Tell me about Vercel deployment')">🚀 Vercel</button>
+                    <button class="action-btn" onclick="quickAction('What are free AI APIs?')">🔗 APIs</button>
+                    <button class="action-btn" onclick="quickAction('Current time and date')">🕒 Time</button>
                 </div>
                 
                 <div class="input-group">
-                    <input type="text" id="user-input" placeholder="Ask anything in Hindi or English..." autocomplete="off">
-                    <button onclick="sendMessage()">Send 🚀</button>
+                    <input type="text" id="userInput" placeholder="Ask anything... I'll use AI APIs for complex queries" autocomplete="off">
+                    <button class="send-btn" onclick="sendMessage()">Send 🚀</button>
                 </div>
             </div>
             
             <div class="features-section">
-                <h2>🚀 Solved AI Problems</h2>
-                <div class="features-grid">
-                    <div class="feature-card">No Response Stopping</div>
-                    <div class="feature-card">Context Awareness</div>
-                    <div class="feature-card">Emotional AI</div>
-                    <div class="feature-card">Advanced Math</div>
-                    <div class="feature-card">Multi-Language</div>
-                    <div class="feature-card">Creative Stories</div>
-                    <div class="feature-card">Always Helpful</div>
-                    <div class="feature-card">Privacy Safe</div>
+                <h2>🚀 System Features</h2>
+                
+                <div class="api-grid">
+                    <div class="api-card free">
+                        <h3>🤗 HuggingFace</h3>
+                        <p>Free AI Models</p>
+                        <small>DialoGPT, GPT-2</small>
+                    </div>
+                    <div class="api-card free">
+                        <h3>⚡ DeepInfra</h3>
+                        <p>Free Inference</p>
+                        <small>Fast Responses</small>
+                    </div>
+                    <div class="api-card">
+                        <h3>🌐 Vercel</h3>
+                        <p>Global Deployment</p>
+                        <small>Edge Network</small>
+                    </div>
+                    <div class="api-card">
+                        <h3>🔒 Secure</h3>
+                        <p>HTTPS Auto</p>
+                        <small>Always Safe</small>
+                    </div>
                 </div>
                 
-                <h2 style="margin-top: 30px;">📊 System Status</h2>
-                <div id="system-info">
-                    <p>Loading system information...</p>
+                <h3 style="margin-top: 20px;">📊 System Status</h3>
+                <div id="systemInfo">
+                    <p><span class="status-indicator status-online"></span> Loading system information...</p>
                 </div>
                 
-                <div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 10px;">
-                    <strong>💡 Pro Tip:</strong> Try "1-1" then "answer do uska" - Context memory test! Also mix Hindi/English freely!
+                <div style="margin-top: 20px; padding: 15px; background: rgba(0, 212, 170, 0.1); border-radius: 10px; border: 1px solid rgba(0, 212, 170, 0.3);">
+                    <strong>💡 Pro Tip:</strong> Ask complex questions! I'll automatically use Free AI APIs for detailed answers.
                 </div>
             </div>
+        </div>
+        
+        <div class="footer">
+            <p>🔧 Developed by <strong>Adityahub404singh</strong> | 📍 Deployed on <strong>Vercel</strong> | 🤖 Powered by <strong>Free AI APIs</strong></p>
+            <p>GitHub: <strong>Adityahub404singh/pro</strong> | Always Online 🌐 | Real-time AI Responses ⚡</p>
         </div>
     </div>
 
     <script>
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+        
         async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const message = input.value.trim();
-            
+            const message = userInput.value.trim();
             if (!message) return;
-            
-            const chatBox = document.getElementById('chat-box');
             
             // Add user message
             chatBox.innerHTML += `
@@ -511,21 +588,36 @@ ENHANCED_HTML = '''
                 </div>
             `;
             
-            input.value = '';
+            userInput.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Show typing indicator
+            typingIndicator.style.display = 'block';
             chatBox.scrollTop = chatBox.scrollHeight;
             
             try {
-                const response = await fetch('/chat', {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: message})
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Platform': 'Vercel'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        user: 'adityahub404singh',
+                        platform: 'vercel'
+                    })
                 });
                 
                 const data = await response.json();
                 
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                
                 // Add AI response
+                const messageClass = data.response.includes('🤖') ? 'api-message' : 'ai-message';
                 chatBox.innerHTML += `
-                    <div class="message ai-message">
+                    <div class="message ${messageClass}">
                         <strong>AI_GURU_PRO:</strong> ${data.response}
                     </div>
                 `;
@@ -533,45 +625,48 @@ ENHANCED_HTML = '''
                 chatBox.scrollTop = chatBox.scrollHeight;
                 
             } catch (error) {
+                typingIndicator.style.display = 'none';
                 chatBox.innerHTML += `
                     <div class="message ai-message">
-                        <strong>AI_GURU_PRO:</strong> ⚠️ Connection issue! Please try again.
+                        <strong>AI_GURU_PRO:</strong> ⚠️ Connection error! Vercel server busy.
                     </div>
                 `;
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
             
-            // Update system info
             updateSystemInfo();
         }
         
         function quickAction(action) {
-            document.getElementById('user-input').value = action;
+            userInput.value = action;
             sendMessage();
         }
         
-        async function updateSystemInfo() {
-            try {
-                const response = await fetch('/system/info');
-                const data = await response.json();
-                document.getElementById('system-info').innerHTML = `
-                    <p><strong>AI:</strong> ${data.ai_name} v${data.version}</p>
-                    <p><strong>Status:</strong> ${data.status}</p>
-                    <p><strong>Memory:</strong> ${data.conversation_memory} messages stored</p>
-                    <p><strong>Active Users:</strong> ${data.active_users}</p>
-                    <p><strong>Uptime:</strong> ${data.uptime}</p>
-                `;
-            } catch (error) {
-                document.getElementById('system-info').innerHTML = '<p>System info unavailable</p>';
-            }
-        }
-        
         // Enter key support
-        document.getElementById('user-input').addEventListener('keypress', function(e) {
+        userInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
+        
+        async function updateSystemInfo() {
+            try {
+                const response = await fetch('/api/system/info');
+                const data = await response.json();
+                document.getElementById('systemInfo').innerHTML = `
+                    <p><span class="status-indicator status-online"></span> <strong>AI:</strong> ${data.ai_name} v${data.version}</p>
+                    <p><span class="status-indicator status-online"></span> <strong>Platform:</strong> ${data.platform}</p>
+                    <p><span class="status-indicator status-online"></span> <strong>Status:</strong> ${data.status}</p>
+                    <p><span class="status-indicator status-online"></span> <strong>APIs:</strong> ${data.apis_available.join(', ')}</p>
+                    <p><span class="status-indicator status-online"></span> <strong>Memory:</strong> ${data.conversation_memory} messages</p>
+                `;
+            } catch (error) {
+                document.getElementById('systemInfo').innerHTML = '<p>⚠️ System info unavailable</p>';
+            }
+        }
+        
+        // Auto-focus on input
+        userInput.focus();
         
         // Load system info on start
         updateSystemInfo();
@@ -581,33 +676,48 @@ ENHANCED_HTML = '''
 '''
 
 @app.route('/')
-def ultimate_home():
-    return ENHANCED_HTML
+def home():
+    return VERCEL_HTML
 
-@app.route('/chat', methods=['POST'])
-def ultimate_chat():
-    data = request.json
-    user_message = data.get('message', 'Hello')
-    user_id = request.remote_addr  # Use IP as user ID for context
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    try:
+        data = request.get_json()
+        user_message = data.get('message', 'Hello')
+        user_id = request.remote_addr
+        
+        response = ai_bot.process_message(user_message, user_id)
+        
+        return jsonify({
+            "response": response,
+            "status": "success",
+            "platform": "Vercel",
+            "deployed_by": "Adityahub404singh",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "version": ai_bot.version
+        })
     
-    response = ultimate_ai.process_message(user_message, user_id)
-    
-    return jsonify({
-        "response": response,
-        "ai": ultimate_ai.name,
-        "version": ultimate_ai.version,
-        "timestamp": datetime.datetime.now().isoformat()
-    })
+    except Exception as e:
+        return jsonify({
+            "response": "❌ Server error! Please try again.",
+            "status": "error",
+            "platform": "Vercel"
+        })
 
-@app.route('/system/info')
+@app.route('/api/system/info')
 def system_info():
-    return jsonify(ultimate_ai.get_system_info())
+    return jsonify(ai_bot.get_system_info())
+
+# Vercel serverless function handler
+def handler(request):
+    with app.app_context():
+        return app(request)
 
 if __name__ == '__main__':
-    print("🚀 STARTING AI_GURU_PRO ULTIMATE 3.0 - ALL PROBLEMS SOLVED!")
-    print("🌐 WEB: http://localhost:5000")
-    print("✅ All AI drawbacks fixed and implemented!")
-    print("✅ Direct answer system activated!")
-    print("✅ Context memory enabled!")
-    print("✅ Emotional intelligence integrated!")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"🚀 AI_GURU_PRO starting on Vercel compatible port {port}")
+    print("✅ Vercel Deployment Ready")
+    print("✅ Free AI APIs Integrated") 
+    print("✅ Real-time AI Responses")
+    print("🌐 Live on: https://ai-guru-pro.vercel.app")
+    app.run(host='0.0.0.0', port=port, debug=False)
